@@ -14,8 +14,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function startServer() {
-  const app = express();
+const app = express();
+
+async function createServer() {
   const PORT = Number(process.env.PORT) || 3000;
 
   app.use(cors());
@@ -33,7 +34,7 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -41,21 +42,27 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     // Serve static files in production
-    app.use(express.static(path.join(__dirname, 'dist')));
+    const distPath = path.join(__dirname, 'dist');
+    app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, 'dist/index.html'));
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
   // Error Handler
   app.use(errorHandler);
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  });
+  // Only listen if not running as a serverless function (Vercel)
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  }
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
+createServer().catch((err) => {
+  console.error('Failed to initialize server:', err);
 });
+
+export default app;
